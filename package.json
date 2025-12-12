@@ -10,7 +10,7 @@
     "vite-treegraph": "./src/bin.tsx"
   },
   "scripts": {
-    "example": "bun run --watch src/example.tsx",
+    "example": "bun run  src/example.tsx",
     "build": "rm -rf dist && tsc",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"

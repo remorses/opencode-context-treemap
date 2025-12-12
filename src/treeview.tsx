@@ -15,6 +15,7 @@ export interface TreeNode {
   id?: number;
   deleted?: boolean;
   children?: TreeNode[];
+  partKey?: string;
 }
 
 export interface TreeNodeData {
@@ -45,6 +46,7 @@ interface TreemapProps {
   colorScheme: string[];
   deletedColorScheme: string[];
   formatValue?: (value: number) => string;
+  onLeafSelect?: (node: TreeNode) => void;
 }
 
 const paddingTop = 3;
@@ -55,6 +57,7 @@ export function Treemap({
   colorScheme,
   deletedColorScheme,
   formatValue,
+  onLeafSelect,
 }: TreemapProps) {
   const { width, height } = useTerminalDimensions();
   const [currentTab, setCurrentTab] = useState(0);
@@ -145,6 +148,8 @@ export function Treemap({
       if (selected && selected.children) {
         setZoomedNodeId(selected.data.id);
         setSelectedIndex(0);
+      } else if (selected && !selected.children && onLeafSelect) {
+        onLeafSelect(selected.data);
       }
     } else if (key.name === "escape" || key.name === "backspace") {
       if (zoomedNode.parent) {
@@ -168,6 +173,8 @@ export function Treemap({
     if (targetNode && targetNode.children) {
       setZoomedNodeId(nodeId);
       setSelectedIndex(0);
+    } else if (targetNode && !targetNode.children && onLeafSelect) {
+      onLeafSelect(targetNode.data);
     }
   };
 
@@ -253,7 +260,12 @@ function MapNode({
   const min = 2;
 
   const text = `${node.data.name}`;
-  const showText = nodeWidth > 6 && nodeHeight > 1;
+  // opentui shows title only if: width >= titleLength + 4 (minTitleSpace)
+  // So max title length is: nodeWidth - 4
+  const maxTitleLength = nodeWidth - 4;
+  const truncatedTitle = maxTitleLength >= 1
+    ? (text.length > maxTitleLength ? text.slice(0, Math.max(1, maxTitleLength - 1)) + "…" : text)
+    : undefined;
 
   function getBg(n: HierarchyRectangularNode<TreeNode> | null): string {
     if (!n) {
@@ -284,7 +296,7 @@ function MapNode({
 
   return (
     <box
-      title={showText ? text : undefined}
+      title={truncatedTitle}
       style={{
         position: "absolute",
         top: Math.floor(node.y0) + margin.top + paddingTop,
