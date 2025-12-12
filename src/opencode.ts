@@ -160,49 +160,16 @@ async function main() {
   const messageNodes: TreeNode[] = messages.map((msg, msgIndex) => {
     const role = msg.info.role
 
-    // Group parts by type
-    const partsByType = new Map<string, { label: string; size: number }[]>()
-
-    for (const part of msg.parts) {
+    // Create a node for each part
+    const children: TreeNode[] = msg.parts.map((part) => {
       const size = getPartSize(part)
       const label = getPartLabel(part)
-      const type = label.split(":")[0]
-
-      if (!partsByType.has(type)) {
-        partsByType.set(type, [])
+      return {
+        name: label,
+        value: size,
+        layer: 1,
       }
-      partsByType.get(type)!.push({ label, size })
-    }
-
-    // Create children for each part type
-    const children: TreeNode[] = []
-    let typeLayer = 1
-
-    for (const [type, parts] of partsByType) {
-      if (parts.length === 1) {
-        // Single part of this type - add directly
-        children.push({
-          name: parts[0].label,
-          value: parts[0].size,
-          layer: typeLayer,
-        })
-      } else {
-        // Multiple parts of this type - group them
-        const typeChildren: TreeNode[] = parts.map((p, i) => ({
-          name: p.label === type ? `${type}[${i}]` : p.label,
-          value: p.size,
-          layer: typeLayer + 1,
-        }))
-
-        children.push({
-          name: type,
-          value: 0,
-          layer: typeLayer,
-          children: typeChildren,
-        })
-      }
-      typeLayer++
-    }
+    })
 
     const isLast = msgIndex === messages.length - 1
     return {
