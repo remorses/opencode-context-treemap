@@ -86,8 +86,11 @@ function getPartLabel(part: Part, projectPath: string): string {
       }
       return `tool:${part.tool}`
     }
-    case "file":
-      return `file:${part.filename || part.url}`
+    case "file": {
+      // Use source path if available, otherwise filename or url
+      const filePath = (part.source && "path" in part.source) ? part.source.path : (part.filename || part.url)
+      return `file:${relativePath(filePath)}`
+    }
     case "subtask":
       return `subtask:${part.agent}`
     default:
@@ -103,25 +106,49 @@ function formatCharSize(chars: number): string {
   return m.toFixed(1) + "M chars"
 }
 
-const schemeBlue = [
-  "#deebf7",
-  "#c6dbef",
-  "#9ecae1",
-  "#6baed6",
-  "#4292c6",
-  "#2171b5",
-  "#084594",
-]
+// Color map for different part types
+const colorMap: Record<string, string> = {
+  // Message roles
+  "user": "#4ade80",      // bright green
+  "assistant": "#818cf8", // bright indigo
+  
+  // Part types
+  "text": "#60a5fa",      // bright blue
+  "reasoning": "#c084fc", // bright purple
+  "file": "#fbbf24",      // bright amber
+  
+  // Tool types
+  "tool:read": "#34d399",    // bright emerald
+  "tool:write": "#f87171",   // bright red
+  "tool:edit": "#fb923c",    // bright orange
+  "tool:bash": "#38bdf8",    // bright sky blue
+  "tool:glob": "#a3e635",    // bright lime
+  "tool:grep": "#2dd4bf",    // bright teal
+  "tool:list": "#facc15",    // bright yellow
+  "tool:task": "#e879f9",    // bright fuchsia
+  "tool:todowrite": "#a78bfa", // bright violet
+  "tool:todoread": "#93c5fd",  // light blue
+  "tool:webfetch": "#4ade80",  // bright green
+  "tool:googlesearch": "#f472b6", // bright pink
+  "tool": "#94a3b8",         // slate (fallback)
+  
+  // Other types
+  "subtask": "#d946ef",   // bright magenta
+  "step-start": "#64748b", // slate
+  "step-finish": "#78716c", // stone
+  "snapshot": "#6b7280",  // gray
+  "patch": "#fb7185",     // rose
+  "agent": "#a78bfa",     // violet
+  "retry": "#ef4444",     // red
+  "compaction": "#14b8a6", // teal
+}
 
-const schemeGreen = [
-  "#e5f5e0",
-  "#c7e9c0",
-  "#a1d99b",
-  "#74c476",
-  "#41ab5d",
-  "#238b45",
-  "#005a32",
-]
+function getPartColorType(part: Part): string {
+  if (part.type === "tool") {
+    return colorMap[`tool:${part.tool}`] ? `tool:${part.tool}` : "tool"
+  }
+  return part.type
+}
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -194,6 +221,7 @@ async function main() {
         value: size,
         layer: 1,
         partKey,
+        colorType: getPartColorType(part),
       }
     })
 
@@ -201,6 +229,7 @@ async function main() {
     return {
       name: `${role}:${msgIndex}${isLast ? " (last)" : ""}`,
       value: 0,
+      colorType: role,
       layer: 0,
       children,
     }
@@ -278,8 +307,7 @@ async function main() {
       nodes: [
         { name: "session", data: rootNode },
       ],
-      colorScheme: schemeBlue,
-      deletedColorScheme: schemeGreen,
+      colorMap,
       formatValue: formatCharSize,
       onLeafSelect: handleLeafSelect,
     })

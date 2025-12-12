@@ -1,5 +1,4 @@
 import { colord } from "colord";
-import { scaleOrdinal } from "@visx/scale";
 import { treemapBinary } from "@visx/hierarchy";
 import type { HierarchyNode, HierarchyRectangularNode } from "d3-hierarchy";
 import { treemap as d3treemap, hierarchy } from "d3-hierarchy";
@@ -16,6 +15,7 @@ export interface TreeNode {
   deleted?: boolean;
   children?: TreeNode[];
   partKey?: string;
+  colorType?: string;
 }
 
 export interface TreeNodeData {
@@ -24,8 +24,7 @@ export interface TreeNodeData {
 }
 
 interface TreemapContext {
-  colorScale: (value: number) => string;
-  deletedColorScale: (value: number) => string;
+  colorMap: Record<string, string>;
   selectedIndex: number;
   hoveredIndex: number;
   onNodeClick: (nodeId: number) => void;
@@ -33,8 +32,7 @@ interface TreemapContext {
 }
 
 const context = createContext<TreemapContext>({
-  colorScale: () => "",
-  deletedColorScale: () => "",
+  colorMap: {},
   selectedIndex: 0,
   hoveredIndex: -1,
   onNodeClick: () => {},
@@ -43,8 +41,7 @@ const context = createContext<TreemapContext>({
 
 interface TreemapProps {
   nodes: TreeNodeData[];
-  colorScheme: string[];
-  deletedColorScheme: string[];
+  colorMap: Record<string, string>;
   formatValue?: (value: number) => string;
   onLeafSelect?: (node: TreeNode) => void;
 }
@@ -54,8 +51,7 @@ const paddingLeft = 1;
 
 export function Treemap({
   nodes,
-  colorScheme,
-  deletedColorScheme,
+  colorMap,
   formatValue,
   onLeafSelect,
 }: TreemapProps) {
@@ -97,36 +93,12 @@ export function Treemap({
     const treemap = d3treemap<TreeNode>()
       .tile(treemapBinary)
       .size([xMax, yMax])
-      .padding(2)
+      .padding(1)
       .paddingTop(1)
       .paddingBottom(1);
 
     return treemap(zoomedNode.copy());
   }, [zoomedNode, xMax, yMax]);
-
-  const maxLayer = useMemo(() => {
-    return Math.max(...node.descendants().map((n) => n.data.layer || 0));
-  }, [node]);
-
-  const step = Math.ceil(colorScheme.length / (maxLayer + 1));
-
-  const colorScale = useMemo(
-    () =>
-      scaleOrdinal({
-        domain: Array.from({ length: maxLayer + 1 }, (_l, i) => i),
-        range: colorScheme.filter((_c, i) => i % step === 0),
-      }),
-    [maxLayer, step, colorScheme],
-  );
-
-  const deletedColorScale = useMemo(
-    () =>
-      scaleOrdinal({
-        domain: Array.from({ length: maxLayer + 1 }, (_l, i) => i),
-        range: deletedColorScheme.filter((_c, i) => i % step === 0),
-      }),
-    [maxLayer, step, deletedColorScheme],
-  );
 
   const flatNodes = useMemo(() => treemapElem.descendants(), [treemapElem]);
 
@@ -186,8 +158,7 @@ export function Treemap({
     <box padding={1} flexDirection="column" paddingTop={0}>
       <context.Provider
         value={{
-          colorScale,
-          deletedColorScale,
+          colorMap,
           selectedIndex,
           hoveredIndex,
           onNodeClick: handleNodeClick,
@@ -240,6 +211,8 @@ export function Treemap({
   );
 }
 
+const DEFAULT_COLOR = "#64748b"; // slate gray
+
 function MapNode({
   node,
   i,
@@ -248,8 +221,7 @@ function MapNode({
   i: number;
 }) {
   const {
-    colorScale,
-    deletedColorScale,
+    colorMap,
     selectedIndex,
     hoveredIndex,
     onNodeClick,
@@ -267,17 +239,9 @@ function MapNode({
     ? (text.length > maxTitleLength ? text.slice(0, Math.max(1, maxTitleLength - 1)) + "…" : text)
     : undefined;
 
-  function getBg(n: HierarchyRectangularNode<TreeNode> | null): string {
-    if (!n) {
-      return "transparent";
-    }
-    if (n.data.deleted) {
-      return deletedColorScale(n.data.layer || 0) as string;
-    }
-    return colorScale(n.data.layer || 0) as string;
-  }
-
-  const backgroundColor = getBg(node);
+  const backgroundColor = node.data.colorType 
+    ? (colorMap[node.data.colorType] || DEFAULT_COLOR)
+    : DEFAULT_COLOR;
   const isSelected = selectedIndex === i;
   const isHovered = hoveredIndex === i;
 

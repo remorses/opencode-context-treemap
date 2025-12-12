@@ -98,15 +98,9 @@ const demoData: TreeNode = {
   ],
 };
 
-const schemeRed = [
-  "#fee5d9",
-  "#fcbba1",
-  "#fc9272",
-  "#fb6a4a",
-  "#ef3b2c",
-  "#cb181d",
-  "#99000d",
-];
+const colorMap: Record<string, string> = {
+  "default": "#4a4a5a",
+};
 
 function App() {
   return (
@@ -115,8 +109,7 @@ function App() {
         { name: "default", data: demoData }, //
         { name: "another", data: demoData }, //
       ]}
-      colorScheme={schemeRed}
-      deletedColorScheme={schemeRed}
+      colorMap={colorMap}
       formatValue={formatFileSize}
     />
   );
