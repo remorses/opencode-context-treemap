@@ -1,5 +1,5 @@
 import { colord } from "colord";
-import { treemapBinary } from "@visx/hierarchy";
+import { treemapSquarify } from "@visx/hierarchy";
 import type { HierarchyNode, HierarchyRectangularNode } from "d3-hierarchy";
 import { treemap as d3treemap, hierarchy } from "d3-hierarchy";
 import { useMemo, useState, createContext, useContext } from "react";
@@ -91,7 +91,7 @@ export function Treemap({
 
   const treemapElem = useMemo(() => {
     const treemap = d3treemap<TreeNode>()
-      .tile(treemapBinary)
+      .tile(treemapSquarify)
       .size([xMax, yMax])
       .padding(1)
       .paddingTop(1)
