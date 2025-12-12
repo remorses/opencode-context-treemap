@@ -59,7 +59,7 @@ function getPartSize(part: Part): number {
     case "agent":
     case "retry":
     case "compaction":
-      return JSON.stringify(part).length
+      return 0
     default:
       return 0
   }
@@ -111,12 +111,12 @@ const colorMap: Record<string, string> = {
   // Message roles
   "user": "#4ade80",      // bright green
   "assistant": "#818cf8", // bright indigo
-  
+
   // Part types
   "text": "#60a5fa",      // bright blue
   "reasoning": "#c084fc", // bright purple
   "file": "#fbbf24",      // bright amber
-  
+
   // Tool types
   "tool:read": "#34d399",    // bright emerald
   "tool:write": "#f87171",   // bright red
@@ -131,7 +131,7 @@ const colorMap: Record<string, string> = {
   "tool:webfetch": "#4ade80",  // bright green
   "tool:googlesearch": "#f472b6", // bright pink
   "tool": "#94a3b8",         // slate (fallback)
-  
+
   // Other types
   "subtask": "#d946ef",   // bright magenta
   "step-start": "#64748b", // slate
