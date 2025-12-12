@@ -33,5 +33,7 @@
     "vite": "^7.2.7"
   },
   "peerDependencies": {},
-  "dependencies": {}
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.0.150"
+  }
 }
