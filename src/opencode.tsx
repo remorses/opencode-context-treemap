@@ -3,7 +3,8 @@
  * Each message becomes a container node, parts are children with their char sizes.
  *
  * Usage:
- *   bun run src/opencode.ts [session-id]
+ *   bun run src/opencode.tsx [session-id]
+ *   bun run src/opencode.tsx --help
  *
  * Requires opencode to be running (or will start a server automatically)
  */
@@ -181,13 +182,13 @@ class ErrorBoundary extends React.Component<
     console.error("Component stack:", errorInfo.componentStack)
   }
 
-  override render(): any {
+  override render(): React.ReactNode {
     if (this.state.hasError && this.state.error) {
-      return React.createElement(
-        "box",
-        { style: { flexDirection: "column", padding: 2 } },
-        React.createElement("text", { fg: "red" }, "Error: ", this.state.error.message),
-        React.createElement("text", { fg: "brightBlack" }, this.state.error.stack)
+      return (
+        <box style={{ flexDirection: "column", padding: 2 }}>
+          <text fg="red">Error: {this.state.error.message}</text>
+          <text fg="brightBlack">{this.state.error.stack}</text>
+        </box>
       )
     }
 
@@ -219,7 +220,7 @@ async function main(sessionId?: string) {
     if (!sessionsResult.data || sessionsResult.data.length === 0) {
       console.error("No sessions found for this project")
       server.close()
-      process.exit(1)
+      return
     }
 
     const sessions = sessionsResult.data
@@ -241,20 +242,18 @@ async function main(sessionId?: string) {
       useKeyboard((key) => {
         if (key.name === "escape") {
           renderer.destroy()
-          server.close()
-          process.exit(0)
         }
       })
 
-      return React.createElement(
-        "box",
-        { style: { flexDirection: "column", flexGrow: 1, border: true } },
-        React.createElement(Dropdown, {
-          tooltip: "Select a session",
-          placeholder: "Search sessions…",
-          options,
-          onChange: handleSelect,
-        })
+      return (
+        <box style={{ flexDirection: "column", flexGrow: 1, border: true }}>
+          <Dropdown
+            tooltip="Select a session"
+            placeholder="Search sessions…"
+            options={options}
+            onChange={handleSelect}
+          />
+        </box>
       )
     }
 
@@ -275,7 +274,8 @@ async function main(sessionId?: string) {
 
   if (!messagesResult.data) {
     console.error("Failed to fetch messages:", messagesResult.error)
-    process.exit(1)
+    server.close()
+    return
   }
 
   const messages = messagesResult.data
@@ -368,30 +368,26 @@ async function main(sessionId?: string) {
 
     if (selectedPart) {
       const content = getPartContent(selectedPart)
-      return React.createElement(
-        "box",
-        { style: { flexDirection: "column", flexGrow: 1 } },
-        React.createElement(
-          "box",
-          { style: { height: 3, border: true, paddingLeft: 1 } },
-          React.createElement("text", null, `${getPartLabel(selectedPart, projectPath)} - ${formatCharSize(getPartSize(selectedPart))} | Press ESC to close`)
-        ),
-        React.createElement(
-          "scrollbox",
-          { focused: true, style: { flexGrow: 1, border: true }, scrollAcceleration: new MacOSScrollAccel() },
-          React.createElement("text", null, content)
-        )
+      return (
+        <box style={{ flexDirection: "column", flexGrow: 1 }}>
+          <box style={{ height: 3, border: true, paddingLeft: 1 }}>
+            <text>{getPartLabel(selectedPart, projectPath)} - {formatCharSize(getPartSize(selectedPart))} | Press ESC to close</text>
+          </box>
+          <scrollbox focused style={{ flexGrow: 1, border: true }} scrollAcceleration={new MacOSScrollAccel()}>
+            <text>{content}</text>
+          </scrollbox>
+        </box>
       )
     }
 
-    return React.createElement(Treemap, {
-      nodes: [
-        { name: "session", data: rootNode },
-      ],
-      colorMap,
-      formatValue: formatCharSize,
-      onLeafSelect: handleLeafSelect,
-    })
+    return (
+      <Treemap
+        nodes={[{ name: "session", data: rootNode }]}
+        colorMap={colorMap}
+        formatValue={formatCharSize}
+        onLeafSelect={handleLeafSelect}
+      />
+    )
   }
 
   const renderer = await createCliRenderer({
