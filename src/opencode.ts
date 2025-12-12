@@ -3,24 +3,32 @@
  * Each message becomes a container node, parts are children with their char sizes.
  *
  * Usage:
- *   bun run src/opencode.ts <session-id>
+ *   bun run src/opencode.ts [session-id]
  *
  * Requires opencode to be running (or will start a server automatically)
  */
 
 import path from "node:path"
-import { createOpencode, type Part, type Message } from "@opencode-ai/sdk"
+import cac from "cac"
+import { createOpencode, type Part, type Message, type Session } from "@opencode-ai/sdk"
 import { createCliRenderer, MacOSScrollAccel } from "@opentui/core"
 import { createRoot, useKeyboard } from "@opentui/react"
 import React, { useState } from "react"
 import { Treemap, type TreeNode } from "./treeview.js"
+import { Dropdown, type DropdownOption } from "./dropdown.js"
 
-const sessionID = process.argv[2]
+const cli = cac("opencode-treemap")
 
-if (!sessionID) {
-  console.error("Usage: bun run src/opencode.ts <session-id>")
-  process.exit(1)
-}
+cli
+  .command("[sessionId]", "Visualize context usage for a session")
+  .action(async (sessionId?: string) => {
+    await main(sessionId)
+  })
+
+cli.help()
+cli.version("1.0.0")
+
+cli.parse()
 
 function getPartSize(part: Part): number {
   switch (part.type) {
@@ -187,10 +195,83 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-async function main() {
+function formatSessionLabel(session: Session): string {
+  const date = new Date(session.time.created)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffMins < 1) return "just now"
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  return `${diffDays}d ago`
+}
+
+async function main(sessionId?: string) {
   const { client, server } = await createOpencode({port: 0})
 
-  const messagesResult = await client.session.messages({ path: { id: sessionID! } })
+  // If no session ID provided, show session selector
+  if (!sessionId) {
+    const sessionsResult = await client.session.list()
+
+    if (!sessionsResult.data || sessionsResult.data.length === 0) {
+      console.error("No sessions found for this project")
+      server.close()
+      process.exit(1)
+    }
+
+    const sessions = sessionsResult.data
+
+    const options: DropdownOption[] = sessions.map((session) => ({
+      title: session.title || session.id.slice(0, 8),
+      value: session.id,
+      label: formatSessionLabel(session),
+      keywords: [session.id, session.title || ""],
+    }))
+
+    function SessionSelector() {
+      const handleSelect = (selectedId: string) => {
+        // Re-run main with the selected session
+        renderer.destroy()
+        main(selectedId)
+      }
+
+      useKeyboard((key) => {
+        if (key.name === "escape") {
+          renderer.destroy()
+          server.close()
+          process.exit(0)
+        }
+      })
+
+      return React.createElement(
+        "box",
+        { style: { flexDirection: "column", flexGrow: 1, border: true } },
+        React.createElement(Dropdown, {
+          tooltip: "Select a session",
+          placeholder: "Search sessions…",
+          options,
+          onChange: handleSelect,
+        })
+      )
+    }
+
+    const renderer = await createCliRenderer({
+      exitOnCtrlC: true,
+      useMouse: true,
+      onDestroy: () => {
+        server.close()
+      },
+    })
+    createRoot(renderer).render(
+      React.createElement(ErrorBoundary, null, React.createElement(SessionSelector))
+    )
+    return
+  }
+
+  const messagesResult = await client.session.messages({ path: { id: sessionId } })
 
   if (!messagesResult.data) {
     console.error("Failed to fetch messages:", messagesResult.error)
@@ -200,7 +281,7 @@ async function main() {
   const messages = messagesResult.data
 
   // Try to get session directory, but don't fail if session is from different project
-  const sessionResult = await client.session.get({ path: { id: sessionID! } }).catch(() => null)
+  const sessionResult = await client.session.get({ path: { id: sessionId } }).catch(() => null)
   const projectPath = sessionResult?.data?.directory ?? ""
 
   // Create a map to store parts by key
@@ -324,8 +405,3 @@ async function main() {
     React.createElement(ErrorBoundary, null, React.createElement(App))
   )
 }
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})

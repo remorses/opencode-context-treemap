@@ -115,7 +115,10 @@ function App() {
   );
 }
 
-const renderer = await createCliRenderer({exitOnCtrlC: true});
+const renderer = await createCliRenderer({
+  exitOnCtrlC: true,
+});
+
 createRoot(renderer).render(
   React.createElement(ErrorBoundary, null, React.createElement(App)),
 );

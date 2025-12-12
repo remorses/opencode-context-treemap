@@ -3,7 +3,7 @@ import { treemapSquarify } from "@visx/hierarchy";
 import type { HierarchyNode, HierarchyRectangularNode } from "d3-hierarchy";
 import { treemap as d3treemap, hierarchy } from "d3-hierarchy";
 import { useMemo, useState, createContext, useContext } from "react";
-import { useTerminalDimensions, useKeyboard } from "@opentui/react";
+import { useTerminalDimensions, useKeyboard, useRenderer } from "@opentui/react";
 
 const margin = { top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -55,6 +55,7 @@ export function Treemap({
   formatValue,
   onLeafSelect,
 }: TreemapProps) {
+  const renderer = useRenderer();
   const { width, height } = useTerminalDimensions();
   const [currentTab, setCurrentTab] = useState(0);
 
@@ -103,7 +104,10 @@ export function Treemap({
   const flatNodes = useMemo(() => treemapElem.descendants(), [treemapElem]);
 
   useKeyboard((key) => {
-    if (key.name === "left") {
+    if (key.ctrl && key.name === "c") {
+      renderer.destroy();
+      return;
+    } else if (key.name === "left") {
       setCurrentTab((prev) => Math.max(0, prev - 1));
       setZoomedNodeId(undefined);
       setSelectedIndex(0);
@@ -254,8 +258,50 @@ function MapNode({
     return backgroundColor;
   }, [backgroundColor, isSelected, isHovered]);
 
-  if (!nodeWidth || !nodeHeight || nodeWidth < min || nodeHeight < min) {
+  // For very small nodes, render unicode symbols instead of boxes
+  if (!nodeWidth || !nodeHeight) {
     return null;
+  }
+
+  // Tiny node - render as a half block character
+  if (nodeWidth < min || nodeHeight < min) {
+    // Skip if node would render outside bounds
+    const top = Math.floor(node.y0);
+    const left = Math.floor(node.x0);
+    if (top < 0 || left < 0 || top >= Math.floor(node.parent?.y1 ?? Infinity) || left >= Math.floor(node.parent?.x1 ?? Infinity)) {
+      return null;
+    }
+    
+    const symbol = "▄"; // lower half block
+    const rgb = colord(backgroundColor).toRgb();
+    const dimColor = colord({ r: rgb.r * 0.3, g: rgb.g * 0.3, b: rgb.b * 0.3 }).toHex();
+    
+    return (
+      <box
+        style={{
+          position: "absolute",
+          top: top + margin.top + paddingTop,
+          left: left + margin.left + paddingLeft,
+          width: Math.max(1, nodeWidth),
+          height: Math.max(1, nodeHeight),
+        }}
+        onMouse={(event) => {
+          if (event.type === "down" && node.data.id !== undefined) {
+            onNodeClick(node.data.id);
+          } else if (event.type === "move" || event.type === "over") {
+            onNodeHover(i);
+          } else if (event.type === "out") {
+            onNodeHover(-1);
+          }
+        }}
+      >
+        <text>
+          <span fg={isSelected ? "#ffffff" : dimColor}>
+            {symbol.repeat(Math.max(1, nodeWidth))}
+          </span>
+        </text>
+      </box>
+    );
   }
 
   return (
